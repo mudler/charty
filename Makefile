@@ -36,6 +36,9 @@ $(BINDIR)/$(BINNAME): $(SRC)
 clean:
 	@rm -rf '$(BINDIR)'
 
+.PHONY: test
+test:
+	go test -v ./...
 
 .PHONY: info
 info:
