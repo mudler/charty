@@ -1,0 +1,1 @@
+echo "Foo {{.Values.bar}}{{.Values.foo}}"
