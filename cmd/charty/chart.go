@@ -14,23 +14,52 @@ limitations under the License.
 package cmd
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/ghodss/yaml"
-
 	"github.com/mudler/charty/pkg/runner"
 	test "github.com/mudler/charty/pkg/testchart"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	helmoptions "helm.sh/helm/v3/pkg/cli/values"
 	getter "helm.sh/helm/v3/pkg/getter"
 )
 
+func mergeOptions(valuesFiles, set []string) map[string]interface{} {
+	provider := getter.Provider{
+		Schemes: []string{"http", "https"},
+		New:     getter.NewHTTPGetter,
+	}
+	opts := helmoptions.Options{ValueFiles: valuesFiles, Values: set}
+
+	res, err := opts.MergeValues(getter.Providers{provider})
+	if err != nil {
+		log.Error(err)
+		os.Exit(1)
+	}
+	return res
+}
+
+func runtimeOptions(merged map[string]interface{}) runner.Options {
+	startOptions := runner.Options{}
+	out, err := yaml.Marshal(merged)
+	if err != nil {
+		log.Error(err)
+		os.Exit(1)
+	}
+
+	if err = yaml.Unmarshal(out, &startOptions); err != nil {
+		log.Error(err)
+		os.Exit(1)
+	}
+	return startOptions
+}
+
 var startCmd = &cobra.Command{
-	Use:   "start <package name> <package name> <package name> ...",
-	Short: "start a package or a tree",
-	Long:  `start packages or trees from luet tree definitions. Packages are in [category]/[name]-[version] form`,
+	Use:   "start <testchart> <testchart_foo>",
+	Short: "start a test run",
+	Long:  `start testing charts`,
 	PreRun: func(cmd *cobra.Command, args []string) {
 		viper.BindPFlag("set", cmd.Flags().Lookup("set"))
 		viper.BindPFlag("values-files", cmd.Flags().Lookup("values-files"))
@@ -44,73 +73,56 @@ var startCmd = &cobra.Command{
 		runFiles := viper.GetStringSlice("run-files")
 		valuesFiles := viper.GetStringSlice("values-files")
 
-		provider := getter.Provider{
-			Schemes: []string{"http", "https"},
-			New:     getter.NewHTTPGetter,
-		}
-
-		opts := helmoptions.Options{ValueFiles: valuesFiles, Values: set}
-
-		res, err := opts.MergeValues(getter.Providers{provider})
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-		testchart := &test.TestChart{Values: res}
+		testchart := &test.TestChart{Values: mergeOptions(valuesFiles, set)}
 		defer testchart.Cleanup()
 
-		runnerOpts := helmoptions.Options{ValueFiles: runFiles, Values: run}
-
-		res, err = runnerOpts.MergeValues(getter.Providers{provider})
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-
-		startOptions := runner.Options{}
-		out, err := yaml.Marshal(res)
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-
-		if err = yaml.Unmarshal(out, &startOptions); err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
+		startOptions := runtimeOptions(mergeOptions(runFiles, run))
 
 		testrunner := &runner.TestRunner{}
 		for _, a := range args {
+			errors := 0
+			tests := 0
+
 			err := testchart.Load(a)
 			if err != nil {
-				fmt.Println(err)
+				log.Error(err)
 				os.Exit(1)
 			}
+
+			log.WithFields(log.Fields{
+				"name":    testchart.Name(),
+				"version": testchart.Version(),
+				"chart":   a,
+			}).Info("Starting chart")
+
 			out, err := testrunner.Run(testchart, startOptions)
+			scripts := len(out)
+
 			for _, r := range out {
-				fmt.Println("===========")
-				fmt.Println(fmt.Sprintf("[name: %s] [command: %s]", r.Command.Name, r.Command.Run))
-				if len(r.PreOutput) > 0 {
-					fmt.Println(fmt.Sprintf("  [pre-script]: %s", r.PreOutput))
+				if r.Testrun {
+					tests++
 				}
-				fmt.Println(fmt.Sprintf("  output: %s", r.Output))
-				if len(r.PostOutput) > 0 {
-					fmt.Println(fmt.Sprintf("  [post-script]: %s", r.PostOutput))
-				}
+
 				if r.Error != nil {
-					fmt.Println(fmt.Sprintf("  error: %s", r.Error))
-				} else {
-					fmt.Println("  -> OK")
+					errors++
 				}
 			}
+
 			if err != nil {
-				fmt.Println("===========")
-				fmt.Println("Execution failed, bailing out.")
-				fmt.Println(err)
+				log.WithFields(log.Fields{
+					"errors":  errors,
+					"scripts": scripts,
+					"tests":   tests,
+				}).Error("Error summary\n" + err.Error())
 				os.Exit(1)
+			} else {
+				log.WithFields(log.Fields{
+					"errors":  errors,
+					"scripts": scripts,
+					"tests":   tests,
+				}).Info("Success!")
 			}
 		}
-
 	},
 }
 

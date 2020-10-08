@@ -103,8 +103,6 @@ func isValidUrl(toTest string) bool {
 }
 
 func (t *TestChart) loadDefaults(chartpath string) error {
-
-	// load default values
 	var defaults values
 
 	dat, err := ioutil.ReadFile(filepath.Join(chartpath, "values.yaml"))

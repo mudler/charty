@@ -23,12 +23,6 @@ type Chart interface {
 	RunnerDirectory() string
 }
 
-type Command struct {
-	Pre  string `yaml:"pre"`
-	Post string `yaml:"post"`
-	Run  string `yaml:"run"`
-	Name string `yaml:"name"`
-}
 type Options struct {
 	Commands Commands `yaml:"commands"`
 	Pre      []string `yaml:"pre"`
@@ -36,54 +30,6 @@ type Options struct {
 }
 
 type TestRunner struct{}
-type Commands []Command
-
-type CommandOutput struct {
-	PreOutput, PostOutput, Output string
-	Error                         error
-	Command                       Command
-}
-
-func (c Command) Start(dir string) CommandOutput {
-	var err error
-	var preoutput, postoutput string
-	var res error
-	if len(c.Pre) > 0 {
-		preoutput, res = runProc(c.Pre, dir)
-		if res != nil {
-			err = multierror.Append(err, res)
-		}
-	}
-
-	run, res := runProc(c.Run, dir)
-	if res != nil {
-		err = multierror.Append(err, res)
-	}
-
-	if len(c.Post) > 0 {
-		postoutput, res = runProc(c.Post, dir)
-		if res != nil {
-			err = multierror.Append(err, res)
-		}
-	}
-
-	return CommandOutput{
-		PreOutput:  preoutput,
-		PostOutput: postoutput,
-		Output:     run,
-		Error:      err,
-		Command:    c,
-	}
-}
-
-func (l Commands) Start(dir string) []CommandOutput {
-	var res []CommandOutput
-
-	for _, t := range l {
-		res = append(res, t.Start(dir))
-	}
-	return res
-}
 
 func (t *TestRunner) runAndFail(c []string, path string) (string, error) {
 	var o string
