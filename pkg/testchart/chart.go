@@ -189,7 +189,7 @@ func (t *TestChart) Load(chartpath string) error {
 	templates := filepath.Join(chartpath, "templates")
 	err = godirwalk.Walk(templates, &godirwalk.Options{
 		Callback: func(osPathname string, de *godirwalk.Dirent) error {
-			relativepath := strings.ReplaceAll(osPathname, chartpath, "")
+			relativepath := strings.ReplaceAll(osPathname, strings.TrimSuffix(chartpath, "/"), "")
 			relativepath = strings.ReplaceAll(relativepath, "/templates", "")
 
 			if de.IsDir() {
