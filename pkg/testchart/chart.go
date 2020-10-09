@@ -14,6 +14,10 @@ limitations under the License.
 package chart
 
 import (
+	"archive/tar"
+	"bytes"
+	"compress/gzip"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -24,6 +28,7 @@ import (
 
 	"github.com/karrick/godirwalk"
 	"github.com/mholt/archiver/v3"
+	copy "github.com/otiai10/copy"
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
 	"helm.sh/helm/v3/pkg/chart"
@@ -32,9 +37,10 @@ import (
 )
 
 type TestChart struct {
-	name     string
-	version  string
-	defaults map[string]interface{}
+	name            string
+	version         string
+	defaults        map[string]interface{}
+	runtimeDefaults map[string]interface{}
 
 	tmpExecutionDir string
 
@@ -61,6 +67,10 @@ func (t *TestChart) Version() string {
 
 func (t *TestChart) Defaults() values {
 	return t.defaults
+}
+
+func (t *TestChart) RuntimeDefaults() map[string]interface{} {
+	return t.runtimeDefaults
 }
 
 func (t *TestChart) Cleanup() error {
@@ -118,6 +128,25 @@ func (t *TestChart) loadDefaults(chartpath string) error {
 	return nil
 }
 
+func (t *TestChart) loadRuntimeDefaults(chartpath string) error {
+	var defaults values
+	runtime := filepath.Join(chartpath, "runtime.yaml")
+	if _, err := os.Stat(runtime); err == nil {
+		dat, err := ioutil.ReadFile(runtime)
+		if err != nil {
+			return errors.Wrap(err, "while reading runtime file from test chart")
+		}
+
+		if err := yaml.Unmarshal(dat, &defaults); err != nil {
+			return errors.Wrap(err, "while unmarshalling runtime file from test chart")
+		}
+
+		t.runtimeDefaults = defaults
+	}
+
+	return nil
+}
+
 func (t *TestChart) loadMeta(chartpath string) error {
 
 	var meta chartMeta
@@ -135,28 +164,92 @@ func (t *TestChart) loadMeta(chartpath string) error {
 	return nil
 }
 
+func compress(src string, buf io.Writer) error {
+	// tar > gzip > buf
+	zr := gzip.NewWriter(buf)
+	tw := tar.NewWriter(zr)
+
+	// walk through every file in the folder
+	filepath.Walk(src, func(file string, fi os.FileInfo, err error) error {
+		name := strings.ReplaceAll(file, src, "")
+		// generate tar header
+		header, err := tar.FileInfoHeader(fi, file)
+		if err != nil {
+			return err
+		}
+
+		// must provide real name
+		// (see https://golang.org/src/archive/tar/common.go?#L626)
+		header.Name = filepath.ToSlash(name)
+
+		// write header
+		if err := tw.WriteHeader(header); err != nil {
+			return err
+		}
+		// if not a dir, write file content
+		if !fi.IsDir() {
+			data, err := os.Open(file)
+			if err != nil {
+				return err
+			}
+			if _, err := io.Copy(tw, data); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+
+	// produce tar
+	if err := tw.Close(); err != nil {
+		return err
+	}
+	// produce gzip
+	if err := zr.Close(); err != nil {
+		return err
+	}
+	//
+	return nil
+}
+
+func (t *TestChart) Package(chartpath, dest string) error {
+	if err := t.loadMeta(chartpath); err != nil {
+		return errors.Wrap(err, "while reading test metadata")
+	}
+
+	var buf bytes.Buffer
+	if err := compress(chartpath, &buf); err != nil {
+		return err
+	}
+	// write the .tar.gzip
+	fileToWrite, err := os.OpenFile(filepath.Join(dest, fmt.Sprintf("%s-%s.tar.gz", t.name, t.version)), os.O_CREATE|os.O_RDWR, os.ModePerm)
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(fileToWrite, &buf); err != nil {
+		return err
+	}
+	return nil
+	//	return archiver.Archive([]string{chartpath}, filepath.Join(dest, fmt.Sprintf("%s-%s.tar.gz", t.name, t.version)))
+}
+
 func (t *TestChart) Load(chartpath string) error {
 
-	_, err := os.Stat(chartpath)
-	// Get chart if it's not a folder
-	if os.IsNotExist(err) {
-		// not a dir
-
-		if isValidUrl(chartpath) {
-			tmpfile, err := ioutil.TempFile(os.TempDir(), "example")
-			if err != nil {
-				return errors.Wrap(err, "while creating tempfile")
-			}
-
-			defer os.Remove(tmpfile.Name()) // clean up
-			//download and extract
-			err = downloadFile(tmpfile.Name(), chartpath)
-			if err != nil {
-				return errors.Wrap(err, "while downloading chart")
-			}
-
-			chartpath = tmpfile.Name()
+	if isValidUrl(chartpath) {
+		tmpfile, err := ioutil.TempFile(os.TempDir(), "example")
+		if err != nil {
+			return errors.Wrap(err, "while creating tempfile")
 		}
+
+		defer os.Remove(tmpfile.Name()) // clean up
+		//download and extract
+		err = downloadFile(tmpfile.Name(), chartpath)
+		if err != nil {
+			return errors.Wrap(err, "while downloading chart")
+		}
+
+		chartpath = tmpfile.Name()
+	} else if strings.Contains(chartpath, "tar.gz") {
+		// Get chart if it's not a folder
 
 		// Extract archives
 		dir, err := ioutil.TempDir(os.TempDir(), "prefix")
@@ -182,7 +275,9 @@ func (t *TestChart) Load(chartpath string) error {
 	if err := t.loadMeta(chartpath); err != nil {
 		return errors.Wrap(err, "while reading test metadata")
 	}
-
+	if err := t.loadRuntimeDefaults(chartpath); err != nil {
+		return errors.Wrap(err, "while reading test runtime")
+	}
 	// render templates
 	templates := filepath.Join(chartpath, "templates")
 	err = godirwalk.Walk(templates, &godirwalk.Options{
@@ -216,6 +311,18 @@ func (t *TestChart) Load(chartpath string) error {
 	if err != nil {
 		return err
 	}
+
+	// copy static
+	static := filepath.Join(chartpath, "static")
+	if _, err := os.Stat(static); err == nil {
+		if err := copy.Copy(static, filepath.Join(t.tmpExecutionDir, "static")); err != nil {
+			return err
+		}
+	}
+
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -240,5 +347,5 @@ func (t *TestChart) render(template string) (string, error) {
 		return "", errors.Wrap(err, "while rendering template")
 	}
 
-	return out["templates"], nil
+	return out[t.name+"/templates"], nil
 }

@@ -14,6 +14,8 @@ limitations under the License.
 package runner
 
 import (
+	"time"
+
 	multierror "github.com/hashicorp/go-multierror"
 	log "github.com/sirupsen/logrus"
 )
@@ -31,6 +33,7 @@ type CommandOutput struct {
 	Error                         error
 	Command                       Command
 	Testrun                       bool
+	Elapsed                       float64
 }
 
 func (c Command) Start(dir string) CommandOutput {
@@ -43,12 +46,12 @@ func (c Command) Start(dir string) CommandOutput {
 			err = multierror.Append(err, res)
 		}
 	}
-
+	start := time.Now()
 	run, res := runProc(c.Run, dir)
 	if res != nil {
 		err = multierror.Append(err, res)
 	}
-
+	delta := time.Since(start)
 	if len(c.Post) > 0 {
 		postoutput, res = runProc(c.Post, dir)
 		if res != nil {
@@ -62,6 +65,7 @@ func (c Command) Start(dir string) CommandOutput {
 		Output:     run,
 		Error:      err,
 		Command:    c,
+		Elapsed:    delta.Seconds(),
 		Testrun:    true,
 	}
 }
@@ -85,15 +89,17 @@ func (r CommandOutput) Log() {
 
 	if r.Error != nil {
 		log.WithFields(log.Fields{
-			"name":    r.Command.Name,
-			"command": r.Command.Run,
-			"success": r.Error == nil,
+			"name":       r.Command.Name,
+			"command":    r.Command.Run,
+			"success":    r.Error == nil,
+			"elapsed(s)": r.Elapsed,
 		}).Error(r.Output + "\n error: \n" + r.Error.Error())
 	} else {
 		log.WithFields(log.Fields{
-			"name":    r.Command.Name,
-			"command": r.Command.Run,
-			"success": r.Error == nil,
+			"name":       r.Command.Name,
+			"command":    r.Command.Run,
+			"success":    r.Error == nil,
+			"elapsed(s)": r.Elapsed,
 		}).Info(r.Output)
 	}
 }

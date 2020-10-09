@@ -46,12 +46,7 @@ var _ = Describe("Testrunner", func() {
 		It("executes test correctly", func() {
 			err := testchart.Load("../../test/fixture")
 			Expect(err).ToNot(HaveOccurred())
-			out, err := testrunner.Run(testchart, runner.Options{
-				Commands: []runner.Command{{
-					Name: "test",
-					Run:  "bash test.sh",
-				}},
-			})
+			out, err := testrunner.Run(testchart, runner.Options{})
 
 			Expect(globstring(out)).To(Equal(`Foo testreal`))
 			Expect(err).ToNot(HaveOccurred())
@@ -61,18 +56,13 @@ var _ = Describe("Testrunner", func() {
 			testchart.Values = map[string]interface{}{"foo": "foo"}
 			err := testchart.Load("../../test/fixture")
 			Expect(err).ToNot(HaveOccurred())
-			out, err := testrunner.Run(testchart, runner.Options{
-				Commands: []runner.Command{{
-					Name: "test",
-					Run:  "bash test.sh",
-				}},
-			})
+			out, err := testrunner.Run(testchart, runner.Options{})
 
 			Expect(globstring(out)).To(Equal(`Foo testfoo`))
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("catches failures", func() {
+		It("catches failures and overrides chart settings", func() {
 			testchart.Values = map[string]interface{}{"foo": "foo"}
 			err := testchart.Load("../../test/fixture")
 			Expect(err).ToNot(HaveOccurred())

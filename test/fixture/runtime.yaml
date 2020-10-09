@@ -1,0 +1,3 @@
+commands:
+  - run: "bash test.sh"
+    name: "test"

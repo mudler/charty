@@ -3,6 +3,7 @@ module github.com/mudler/charty
 go 1.14
 
 require (
+	github.com/antonfisher/nested-logrus-formatter v1.3.0
 	github.com/dsnet/compress v0.0.1 // indirect
 	github.com/flynn/go-shlex v0.0.0-20150515145356-3f9db97f8568 // indirect
 	github.com/ghodss/yaml v1.0.0
@@ -10,6 +11,7 @@ require (
 	github.com/gordonklaus/ineffassign v0.0.0-20200809085317-e36bfde3bb78 // indirect
 	github.com/hashicorp/go-multierror v1.0.0
 	github.com/helm/helm v2.16.12+incompatible
+	github.com/imdario/mergo v0.3.8
 	github.com/ionrock/procs v0.0.0-20180102005558-f53ef5630f1a
 	github.com/karrick/godirwalk v1.16.1
 	github.com/mdempsky/unconvert v0.0.0-20200228143138-95ecdbfc0b5f // indirect
@@ -19,6 +21,7 @@ require (
 	github.com/onsi/ginkgo v1.14.1
 	github.com/onsi/gomega v1.10.2
 	github.com/opennota/check v0.0.0-20180911053232-0c771f5545ff // indirect
+	github.com/otiai10/copy v1.0.2
 	github.com/pierrec/lz4 v2.5.2+incompatible // indirect
 	github.com/pkg/errors v0.9.1
 	github.com/sirupsen/logrus v1.6.0

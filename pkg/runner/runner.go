@@ -15,12 +15,15 @@ package runner
 
 import (
 	multierror "github.com/hashicorp/go-multierror"
+	"github.com/imdario/mergo"
 	"github.com/ionrock/procs"
 	"github.com/pkg/errors"
+	"gopkg.in/yaml.v2"
 )
 
 type Chart interface {
 	RunnerDirectory() string
+	RuntimeDefaults() map[string]interface{}
 }
 
 type Options struct {
@@ -43,17 +46,37 @@ func (t *TestRunner) runAndFail(c []string, path string) (string, error) {
 	return o, nil
 }
 
+func interfaceToOptions(m map[string]interface{}) (Options, error) {
+	dat, err := yaml.Marshal(m)
+	if err != nil {
+		return Options{}, err
+	}
+	var opts Options
+	err = yaml.Unmarshal(dat, &opts)
+	return opts, err
+}
+
 func (t *TestRunner) Run(c Chart, o Options) ([]CommandOutput, error) {
 	res := []CommandOutput{}
 	var ret error
 
-	if out, err := t.runAndFail(o.Pre, c.RunnerDirectory()); err != nil {
+	// Merge runtime options with what provided from the chart
+	opts, err := interfaceToOptions(c.RuntimeDefaults())
+	if err != nil {
+		return res, err
+	}
+
+	if err := mergo.Merge(&opts, o, mergo.WithOverride); err != nil {
+		return res, err
+	}
+
+	if out, err := t.runAndFail(opts.Pre, c.RunnerDirectory()); err != nil {
 		res = append(res, CommandOutput{Command: Command{Name: "global-pre-run"}, Error: err, Output: out})
 		ret = multierror.Append(ret, err)
 		return res, ret
 	}
 
-	results := o.Commands.Start(c.RunnerDirectory())
+	results := opts.Commands.Start(c.RunnerDirectory())
 	for _, r := range results {
 		if r.Error != nil {
 			ret = multierror.Append(ret, r.Error)
@@ -61,7 +84,7 @@ func (t *TestRunner) Run(c Chart, o Options) ([]CommandOutput, error) {
 	}
 	res = append(res, results...)
 
-	if out, err := t.runAndFail(o.Post, c.RunnerDirectory()); err != nil {
+	if out, err := t.runAndFail(opts.Post, c.RunnerDirectory()); err != nil {
 		res = append(res, CommandOutput{Command: Command{Name: "global-post-run"}, Error: err, Output: out})
 		ret = multierror.Append(ret, err)
 		return res, ret
@@ -73,10 +96,17 @@ func (t *TestRunner) Run(c Chart, o Options) ([]CommandOutput, error) {
 func runProc(cmd, dir string) (string, error) {
 	p := procs.NewProcess(cmd)
 	p.Dir = dir
-	err := p.Run()
-	if err != nil {
-		return "", err
-	}
+	procerr := p.Run()
+
 	out, err := p.Output()
-	return string(out), err
+	if err != nil {
+		return string(out), procerr
+	}
+	errout, err := p.ErrOutput()
+
+	if err != nil {
+		return string(errout), procerr
+	}
+
+	return string(out) + "\n" + string(errout), procerr
 }

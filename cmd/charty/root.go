@@ -57,20 +57,10 @@ func Execute() {
 
 func init() {
 	cobra.OnInitialize(initConfig)
-	pflags := RootCmd.PersistentFlags()
-	pflags.StringVar(&cfgFile, "config", "", "config file (default is $HOME/.luet.yaml)")
-
 }
 
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
-	// Luet support these priorities on read configuration file:
-	// - command line option (if available)
-	// - $PWD/.luet.yaml
-	// - $HOME/.luet.yaml
-	// - /etc/luet/luet.yaml
-	//
-	// Note: currently a single viper instance support only one config name.
 
 	viper.SetEnvPrefix("CHARTY")
 	viper.SetConfigType("yaml")
