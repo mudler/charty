@@ -39,7 +39,7 @@ var (
 
 // RootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
-	Use:           "chartsy",
+	Use:           "charty",
 	Short:         "Test suites as charts!",
 	Long:          `Execute chart test suites like a breeze!`,
 	Version:       fmt.Sprintf("%s-g%s %s", Version, BuildCommit, BuildTime),
