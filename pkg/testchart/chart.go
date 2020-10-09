@@ -232,38 +232,54 @@ func (t *TestChart) Package(chartpath, dest string) error {
 	//	return archiver.Archive([]string{chartpath}, filepath.Join(dest, fmt.Sprintf("%s-%s.tar.gz", t.name, t.version)))
 }
 
+
 func (t *TestChart) Load(chartpath string) error {
 
 	if isValidUrl(chartpath) {
-		tmpfile, err := ioutil.TempFile(os.TempDir(), "example")
+		tempdir, err := ioutil.TempDir(os.TempDir(), "charty")
 		if err != nil {
-			return errors.Wrap(err, "while creating tempfile")
+			return err
 		}
+		defer os.RemoveAll(tempdir)
+		chart:= filepath.Join(tempdir,"chart.tar.gz")
 
-		defer os.Remove(tmpfile.Name()) // clean up
 		//download and extract
-		err = downloadFile(tmpfile.Name(), chartpath)
+		err = downloadFile(chart, chartpath)
 		if err != nil {
 			return errors.Wrap(err, "while downloading chart")
 		}
 
-		chartpath = tmpfile.Name()
+		// Extract archives
+		dir, err := ioutil.TempDir(os.TempDir(), "charty")
+		if err != nil {
+			return err
+		}
+		defer os.RemoveAll(dir)
+
+		err = archiver.Unarchive(chart, dir)
+		if err != nil {
+			return err
+		}
+		chartpath = dir
 	} else if strings.Contains(chartpath, "tar.gz") {
 		// Get chart if it's not a folder
 
 		// Extract archives
-		dir, err := ioutil.TempDir(os.TempDir(), "prefix")
+		dir, err := ioutil.TempDir(os.TempDir(), "charty")
 		if err != nil {
 			return err
 		}
 		defer os.RemoveAll(dir)
 
 		err = archiver.Unarchive(chartpath, dir)
+		if err != nil {
+			return err
+		}
 		chartpath = dir
 	}
 
 	// prepare dir for the runner
-	dir, err := ioutil.TempDir(os.TempDir(), "prefix")
+	dir, err := ioutil.TempDir(os.TempDir(), "charty")
 	if err != nil {
 		return errors.Wrap(err, "while creating tempdir")
 	}
