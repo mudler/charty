@@ -48,7 +48,7 @@ var _ = Describe("Testrunner", func() {
 			Expect(err).ToNot(HaveOccurred())
 			out, err := testrunner.Run(testchart, runner.Options{})
 
-			Expect(globstring(out)).To(Equal(`Foo testreal`))
+			Expect(globstring(out)).To(Equal("Foo testreal\n"))
 			Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -58,7 +58,7 @@ var _ = Describe("Testrunner", func() {
 			Expect(err).ToNot(HaveOccurred())
 			out, err := testrunner.Run(testchart, runner.Options{})
 
-			Expect(globstring(out)).To(Equal(`Foo testfoo`))
+			Expect(globstring(out)).To(Equal("Foo testfoo\n"))
 			Expect(err).ToNot(HaveOccurred())
 		})
 
