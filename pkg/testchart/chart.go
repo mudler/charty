@@ -284,7 +284,7 @@ func (t *TestChart) Load(chartpath string) error {
 		Callback: func(osPathname string, de *godirwalk.Dirent) error {
 			relativepath := strings.ReplaceAll(osPathname, strings.TrimSuffix(chartpath, "/"), "")
 			relativepath = strings.ReplaceAll(relativepath, "/templates", "")
-
+			relativepath=strings.TrimPrefix(relativepath,"/")
 			if de.IsDir() {
 				os.MkdirAll(filepath.Join(t.tmpExecutionDir, relativepath), os.ModePerm)
 				return nil //godirwalk.SkipThis
@@ -294,7 +294,7 @@ func (t *TestChart) Load(chartpath string) error {
 			if err != nil {
 				return errors.Wrap(err, "while reading source data")
 			}
-			rendered, err := t.render(string(dat))
+			rendered, err := t.render(string(dat),relativepath)
 			if err != nil {
 				return errors.Wrap(err, "while rendering template")
 			}
@@ -326,14 +326,14 @@ func (t *TestChart) Load(chartpath string) error {
 	return nil
 }
 
-func (t *TestChart) render(template string) (string, error) {
+func (t *TestChart) render(template,id string) (string, error) {
 	c := &chart.Chart{
 		Metadata: &chart.Metadata{
 			Name:    t.name,
 			Version: t.version,
 		},
 		Templates: []*chart.File{
-			{Name: "templates", Data: []byte(template)},
+			{Name: id, Data: []byte(template)},
 		},
 		Values: map[string]interface{}{"Values": t.defaults},
 	}
@@ -347,5 +347,5 @@ func (t *TestChart) render(template string) (string, error) {
 		return "", errors.Wrap(err, "while rendering template")
 	}
 
-	return out[t.name+"/templates"], nil
+	return out[t.name+"/"+id], nil
 }
