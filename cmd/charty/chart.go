@@ -57,8 +57,9 @@ func runtimeOptions(merged map[string]interface{}) runner.Options {
 }
 
 var startCmd = &cobra.Command{
-	Use:   "start [CHART1] [CHART2] [flags]",
-	Short: "start a runnable helm-templated chart!",
+	Use:     "start [CHART1] [CHART2] [flags]",
+	Short:   "start a runnable helm-templated chart!",
+	Aliases: []string{"run"},
 	Long: `This command starts a chart.                                                                                                                                                                                                        
                                                                                                                                                                                                                                               
 The start argument must be a path to a packaged chart,                                                                                                                                                                   
