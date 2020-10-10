@@ -26,7 +26,7 @@ var cfgFile string
 var Verbose bool
 
 const (
-	Version = "0.1.1"
+	Version = "0.1.3"
 )
 
 // Build time and commit information.
