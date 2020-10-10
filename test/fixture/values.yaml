@@ -1,3 +1,4 @@
 
 bar: "test"
 foo: "real"
+fail: false

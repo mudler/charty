@@ -14,8 +14,7 @@ limitations under the License.
 package cmd
 
 import (
-	"os"
-
+	"github.com/davecgh/go-spew/spew"
 	"github.com/ghodss/yaml"
 	"github.com/mudler/charty/pkg/runner"
 	test "github.com/mudler/charty/pkg/testchart"
@@ -24,6 +23,7 @@ import (
 	"github.com/spf13/viper"
 	helmoptions "helm.sh/helm/v3/pkg/cli/values"
 	getter "helm.sh/helm/v3/pkg/getter"
+	"os"
 )
 
 func mergeOptions(valuesFiles, set []string) map[string]interface{} {
@@ -121,6 +121,20 @@ set for a key called 'foo', the 'newbar' value would take precedence:
 				"chart":   a,
 			}).Info("Starting chart")
 
+			log.WithFields(log.Fields{
+				"name":    testchart.Name(),
+				"version": testchart.Version(),
+				"chart":   a,
+			}).Info(spew.Sprintf("Chart values: %v ", testchart.Values))
+
+			log.WithFields(log.Fields{
+				"name":    testchart.Name(),
+				"version": testchart.Version(),
+				"chart":   a,
+			}).Info(spew.Sprintf("Chart runtime options: %v ", testchart.RuntimeDefaults()))
+
+			log.Info("===========")
+
 			out, err := testrunner.Run(testchart, startOptions)
 			scripts := len(out)
 			var totalTime float64
@@ -135,6 +149,8 @@ set for a key called 'foo', the 'newbar' value would take precedence:
 				}
 				totalTime += r.Elapsed
 			}
+
+			log.Info("===========")
 
 			if err != nil {
 				log.WithFields(log.Fields{

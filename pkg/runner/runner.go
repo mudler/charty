@@ -14,9 +14,10 @@ limitations under the License.
 package runner
 
 import (
+	"bytes"
+	"github.com/codeskyblue/kexec"
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/imdario/mergo"
-	"github.com/ionrock/procs"
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
 )
@@ -94,19 +95,17 @@ func (t *TestRunner) Run(c Chart, o Options) ([]CommandOutput, error) {
 }
 
 func runProc(cmd, dir string) (string, error) {
-	p := procs.NewProcess(cmd)
+
+	p := kexec.CommandString(cmd)
+
+	var b bytes.Buffer
+	p.Stdout = &b
+	p.Stderr = &b
 	p.Dir = dir
-	procerr := p.Run()
-
-	out, err := p.Output()
-	if err != nil {
-		return string(out), procerr
+	if err := p.Run(); err != nil {
+		return b.String(), err
 	}
-	errout, err := p.ErrOutput()
+	p.Wait()
 
-	if err != nil {
-		return string(errout), procerr
-	}
-
-	return string(out) + "\n" + string(errout), procerr
+	return b.String(), nil
 }

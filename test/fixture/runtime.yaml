@@ -1,3 +1,5 @@
 commands:
   - run: "bash test.sh"
     name: "test"
+  - run: "bash fail2.sh"
+    name: "test2"

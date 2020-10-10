@@ -232,7 +232,6 @@ func (t *TestChart) Package(chartpath, dest string) error {
 	//	return archiver.Archive([]string{chartpath}, filepath.Join(dest, fmt.Sprintf("%s-%s.tar.gz", t.name, t.version)))
 }
 
-
 func (t *TestChart) Load(chartpath string) error {
 
 	if isValidUrl(chartpath) {
@@ -241,7 +240,7 @@ func (t *TestChart) Load(chartpath string) error {
 			return err
 		}
 		defer os.RemoveAll(tempdir)
-		chart:= filepath.Join(tempdir,"chart.tar.gz")
+		chart := filepath.Join(tempdir, "chart.tar.gz")
 
 		//download and extract
 		err = downloadFile(chart, chartpath)
@@ -300,7 +299,7 @@ func (t *TestChart) Load(chartpath string) error {
 		Callback: func(osPathname string, de *godirwalk.Dirent) error {
 			relativepath := strings.ReplaceAll(osPathname, strings.TrimSuffix(chartpath, "/"), "")
 			relativepath = strings.ReplaceAll(relativepath, "/templates", "")
-			relativepath=strings.TrimPrefix(relativepath,"/")
+			relativepath = strings.TrimPrefix(relativepath, "/")
 			if de.IsDir() {
 				os.MkdirAll(filepath.Join(t.tmpExecutionDir, relativepath), os.ModePerm)
 				return nil //godirwalk.SkipThis
@@ -310,7 +309,7 @@ func (t *TestChart) Load(chartpath string) error {
 			if err != nil {
 				return errors.Wrap(err, "while reading source data")
 			}
-			rendered, err := t.render(string(dat),relativepath)
+			rendered, err := t.render(string(dat), relativepath)
 			if err != nil {
 				return errors.Wrap(err, "while rendering template")
 			}
@@ -342,7 +341,7 @@ func (t *TestChart) Load(chartpath string) error {
 	return nil
 }
 
-func (t *TestChart) render(template,id string) (string, error) {
+func (t *TestChart) render(template, id string) (string, error) {
 	c := &chart.Chart{
 		Metadata: &chart.Metadata{
 			Name:    t.name,
