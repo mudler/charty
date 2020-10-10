@@ -59,3 +59,7 @@ info:
 	 @echo "Git Tag:           ${GIT_TAG}"
 	 @echo "Git Commit:        ${GIT_COMMIT}"
 	 @echo "Git Tree State:    ${GIT_DIRTY}"
+
+.PHONY: fmt
+fmt:
+	go fmt ./...
