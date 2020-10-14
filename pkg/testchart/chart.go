@@ -57,6 +57,10 @@ func (t *TestChart) RunnerDirectory() string {
 	return t.tmpExecutionDir
 }
 
+func (t *TestChart) SetRunnerDirectory(p string) {
+	t.tmpExecutionDir = p
+}
+
 func (t *TestChart) Name() string {
 	return t.name
 }
@@ -232,6 +236,19 @@ func (t *TestChart) Package(chartpath, dest string) error {
 	//	return archiver.Archive([]string{chartpath}, filepath.Join(dest, fmt.Sprintf("%s-%s.tar.gz", t.name, t.version)))
 }
 
+func (t *TestChart) LoadMeta(chartpath string) error {
+	if err := t.loadDefaults(chartpath); err != nil {
+		return errors.Wrap(err, "while reading test chart defaults")
+	}
+	if err := t.loadMeta(chartpath); err != nil {
+		return errors.Wrap(err, "while reading test metadata")
+	}
+	if err := t.loadRuntimeDefaults(chartpath); err != nil {
+		return errors.Wrap(err, "while reading test runtime")
+	}
+	return nil
+}
+
 func (t *TestChart) Load(chartpath string) error {
 
 	if isValidUrl(chartpath) {
@@ -277,25 +294,22 @@ func (t *TestChart) Load(chartpath string) error {
 		chartpath = dir
 	}
 
-	// prepare dir for the runner
-	dir, err := ioutil.TempDir(os.TempDir(), "charty")
-	if err != nil {
-		return errors.Wrap(err, "while creating tempdir")
+	// prepare dir for the runner if needed
+	if len(t.tmpExecutionDir) == 0 {
+		dir, err := ioutil.TempDir(os.TempDir(), "charty")
+		if err != nil {
+			return errors.Wrap(err, "while creating tempdir")
+		}
+		t.tmpExecutionDir = dir
 	}
-	t.tmpExecutionDir = dir
 
-	if err := t.loadDefaults(chartpath); err != nil {
-		return errors.Wrap(err, "while reading test chart defaults")
+	if err := t.LoadMeta(chartpath); err != nil {
+		return errors.Wrap(err, "while reading test chart meta")
 	}
-	if err := t.loadMeta(chartpath); err != nil {
-		return errors.Wrap(err, "while reading test metadata")
-	}
-	if err := t.loadRuntimeDefaults(chartpath); err != nil {
-		return errors.Wrap(err, "while reading test runtime")
-	}
+
 	// render templates
 	templates := filepath.Join(chartpath, "templates")
-	err = godirwalk.Walk(templates, &godirwalk.Options{
+	err := godirwalk.Walk(templates, &godirwalk.Options{
 		Callback: func(osPathname string, de *godirwalk.Dirent) error {
 			relativepath := strings.ReplaceAll(osPathname, strings.TrimSuffix(chartpath, "/"), "")
 			relativepath = strings.ReplaceAll(relativepath, "/templates", "")

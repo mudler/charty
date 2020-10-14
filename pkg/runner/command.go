@@ -40,6 +40,12 @@ func (c Command) Start(dir string) CommandOutput {
 	var err error
 	var preoutput, postoutput string
 	var res error
+
+	log.WithFields(log.Fields{
+		"name":    c.Name,
+		"command": c.Run,
+	}).Info("Starting")
+
 	if len(c.Pre) > 0 {
 		preoutput, res = runProc(c.Pre, dir)
 		if res != nil {
